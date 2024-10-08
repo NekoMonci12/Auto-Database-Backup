@@ -22,7 +22,8 @@ async function backupDatabase(databaseName) {
 
     try {
         const { stdout, stderr } = await execAsync(`mysqldump -u ${DB_USER} -p'${DB_PASSWORD}' --opt ${databaseName} > ${backupFile}`);
-        if (stderr) {
+        // Filter out the deprecated warning message and handle other errors
+        if (stderr && !stderr.includes('Deprecated program name')) {
             throw new Error(stderr);
         }
         console.log(`${databaseName} backup completed: ${stdout}`);
