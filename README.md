@@ -12,7 +12,7 @@ This project is a Node.js application that schedules regular backups of MySQL da
 
 ## Prerequisites
 
-- Node.js installed on your system.
+- Node.js v20+ installed on your system.
 - Access to MySQL databases.
 - A Discord webhook URL for notifications.
 - [PM2](https://pm2.keymetrics.io/) installed for process management (recommended).
