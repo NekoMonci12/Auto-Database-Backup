@@ -12,7 +12,7 @@ const execAsync = promisify(exec);
 const DB_USER = process.env.DB_USER;
 const DB_PASSWORD = process.env.DB_PASSWORD;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
-const databases = ['paymenter'];
+const databases = ['paymenter','ctrlpanel','pterodactyl'];
 
 const UPLOAD_METHOD = process.env.UPLOAD_METHOD || 'sftp';
 const LOCAL_PATH = process.env.LOCAL_PATH || '/backup/';
