@@ -15,8 +15,8 @@ typeof process.env.DATABASES === 'string' || (process.env.DATABASES = 'paymenter
 const databases = process.env.DATABASES.split(',');
 
 // Backup methods & paths
-const UPLOAD_METHOD = process.env.UPLOAD_METHOD || 'local'; // local, sftp, ftp, s3, both
-const LOCAL_PATH = process.env.LOCAL_PATH || '/backup/';
+const UPLOAD_METHOD = process.env.UPLOAD_METHOD || 'local'; // local, sftp, ftp, s3
+const LOCAL_PATH = process.env.LOCAL_PATH || 'backup/';
 
 // SFTP config
 const SFTP_CONFIG = {
@@ -82,23 +82,25 @@ const backupDatabase = async (db) => {
       `mysqldump -u ${process.env.DB_USER} -p'${process.env.DB_PASSWORD}' --opt ${db} > ${tempFile}`
     );
     if (stderr && !stderr.includes('Deprecated program name')) throw new Error(stderr);
-    fs.renameSync(tempFile, localFile);
-    sendDiscordWebhook(`✅ Backup saved locally: ${fileName}`);
-    if (/sftp|ftp|both|s3/.test(UPLOAD_METHOD)) await uploadExternal(localFile, fileName, date);
+    if (/local/.test(UPLOAD_METHOD)) {
+        fs.renameSync(tempFile, localFile);
+        sendDiscordWebhook(`✅ Backup saved locally: ${fileName}`);
+    }
+    if (/sftp|ftp|s3/.test(UPLOAD_METHOD)) await uploadExternal(localFile, fileName, date);
   } catch (err) {
     sendDiscordWebhook(`❌ Error backing up ${db}: ${err.message}`);
   }
 };
 
 const uploadExternal = async (path, fileName, date) => {
-  if (/sftp|both/.test(UPLOAD_METHOD)) {
+  if (/sftp/.test(UPLOAD_METHOD)) {
     const sftp = new Client();
     await sftp.connect(SFTP_CONFIG);
     await sftp.put(path, `${SFTP_CONFIG.remotePath}/${fileName}`);
     await sftp.end();
     sendDiscordWebhook(`📤 Uploaded via SFTP: ${fileName}`);
   }
-  if (/ftp|both/.test(UPLOAD_METHOD)) {
+  if (/ftp/.test(UPLOAD_METHOD)) {
     const client = new ftp.Client();
     await client.access(FTP_CONFIG);
     await client.uploadFrom(path, fileName);
