@@ -74,9 +74,9 @@ const sendDiscordWebhook = (message) => {
 // Backup & upload
 const backupDatabase = async (db) => {
   const { date, time } = getCurrentDateTime();
-  const fileName = `${db}-${date}-${time}.sql`;
+  const fileName = `${db}-${time}.sql`;
   const tempFile = `/tmp/${fileName}`;
-  const localFile = `${LOCAL_PATH}${fileName}`;
+  const localFile = `${LOCAL_PATH}${date}/${fileName}`;
   try {
     const { stderr } = await execAsync(
       `mysqldump -u ${process.env.DB_USER} -p'${process.env.DB_PASSWORD}' --opt ${db} > ${tempFile}`
@@ -84,9 +84,9 @@ const backupDatabase = async (db) => {
     if (stderr && !stderr.includes('Deprecated program name')) throw new Error(stderr);
     if (/local/.test(UPLOAD_METHOD)) {
         fs.renameSync(tempFile, localFile);
-        sendDiscordWebhook(`✅ Backup saved locally: ${fileName}`);
+        sendDiscordWebhook(`✅ Backup saved locally: **__${fileName}__**`);
     }
-    if (/sftp|ftp|s3/.test(UPLOAD_METHOD)) await uploadExternal(localFile, fileName, date);
+    if (/sftp|ftp|s3/.test(UPLOAD_METHOD)) await uploadExternal(tempFile, fileName, date);
   } catch (err) {
     sendDiscordWebhook(`❌ Error backing up ${db}: ${err.message}`);
   }
@@ -96,26 +96,29 @@ const uploadExternal = async (path, fileName, date) => {
   if (/sftp/.test(UPLOAD_METHOD)) {
     const sftp = new Client();
     await sftp.connect(SFTP_CONFIG);
-    await sftp.put(path, `${SFTP_CONFIG.remotePath}/${fileName}`);
+    await sftp.put(path, `${SFTP_CONFIG.remotePath}/${date}/${fileName}`);
     await sftp.end();
-    sendDiscordWebhook(`📤 Uploaded via SFTP: ${fileName}`);
+    sendDiscordWebhook(`📤 Uploaded via SFTP: **__${fileName}__**`);
   }
   if (/ftp/.test(UPLOAD_METHOD)) {
     const client = new ftp.Client();
+    const remoteFolderPath = `${date}/`;
     await client.access(FTP_CONFIG);
-    await client.uploadFrom(path, fileName);
+    await client.ensureDir(remoteFolderPath);
+    await client.uploadFrom(path, `${remoteFolderPath}${fileName}`);
     client.close();
-    sendDiscordWebhook(`📤 Uploaded via FTP: ${fileName}`);
+    sendDiscordWebhook(`📤 Uploaded via FTP: **__${fileName}__**`);
   }
   if (/s3/.test(UPLOAD_METHOD) && S3_BUCKET) {
     // Path-style with custom endpoint: URL -> S3_ENDPOINT/S3_BUCKET/fileName
-    const key = `${fileName}`;
+    const key = `${date}/${fileName}`;
     await s3.upload({ Bucket: S3_BUCKET, Key: key, Body: fs.createReadStream(path) }).promise();
     const publicUrl = S3_ENDPOINT
       ? `${S3_ENDPOINT.replace(/\/+$/,'')}/${S3_BUCKET}/${key}`
       : `https://${S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-    sendDiscordWebhook(`📤 Uploaded to S3: ${publicUrl}`);
+    sendDiscordWebhook(`📤 Uploaded to S3: **[${fileName}](${publicUrl})**`);
   }
+  fs.unlinkSync(path);
 };
 
 const backupAll = async () => { for (const db of databases) await backupDatabase(db); };
